@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tanjung Senja: Last Light</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1020;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #f5ead6; }
+  #game-holder, #game-holder canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #errbox { display: none; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    background: #7d1f1f; color: #fff; padding: 8px 14px; border-radius: 8px; z-index: 99; font-size: 13px; }
+
+  /* ------------------------------------------------------------- HUD */
+  #hud { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+  .panel { background: rgba(18, 13, 22, 0.72); border: 1px solid rgba(255, 201, 77, 0.35);
+    border-radius: 10px; padding: 8px 12px; backdrop-filter: blur(2px); }
+  #hud-topleft { position: absolute; top: 14px; left: 14px; min-width: 168px; }
+  #hud-money { font-size: 21px; font-weight: 700; color: #ffd94d; }
+  #hud-clock { font-size: 13px; opacity: 0.9; margin-top: 2px; }
+  #hud-shells { font-size: 13px; margin-top: 2px; }
+  #hud-jobLabel { font-size: 11.5px; opacity: 0.75; margin-top: 4px; max-width: 210px; }
+  #hud-objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    max-width: 560px; text-align: center; font-size: 15.5px; font-weight: 600; color: #ffe9b0; }
+  #hud-topright { position: absolute; top: 14px; right: 14px; text-align: right; min-width: 150px; }
+  #hud-stars { font-size: 23px; letter-spacing: 2px; }
+  #hud-bustedWrap { display: none; margin-top: 6px; }
+  #hud-bustedWrap .lbl { font-size: 10.5px; letter-spacing: 2px; color: #ff8a7a; }
+  .bar { height: 9px; background: rgba(255,255,255,0.14); border-radius: 5px; overflow: hidden; }
+  #hud-bustedInner { height: 100%; width: 0%; background: #e83a3a; transition: width 0.12s; }
+  #hud-bottomleft { position: absolute; left: 14px; bottom: 14px; text-align: center; }
+  #hud-minimap { border-radius: 10px; border: 1px solid rgba(255, 201, 77, 0.4); display: block; }
+  #hud-healthbar { margin-top: 7px; }
+  #hud-healthInner { height: 100%; width: 100%; background: #7dc73a; transition: width 0.15s; }
+  #hud-speedWrap { display: none; position: absolute; right: 18px; bottom: 16px; text-align: right; }
+  #hud-speed { font-size: 44px; font-weight: 800; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.6); line-height: 1; }
+  #hud-speedWrap .unit { font-size: 12px; opacity: 0.85; }
+  #hud-radio { font-size: 13.5px; color: #ffd94d; margin-top: 4px; text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
+  #hud-banner { position: absolute; top: 24%; left: 50%; transform: translateX(-50%);
+    font-size: 27px; font-weight: 800; letter-spacing: 0.5px; color: #ffd94d; text-align: center;
+    text-shadow: 0 3px 14px rgba(0,0,0,0.75); opacity: 0; transition: opacity 0.4s; max-width: 86%; }
+  #hud-toast { position: absolute; bottom: 128px; left: 50%; transform: translateX(-50%);
+    font-size: 15.5px; color: #fff; background: rgba(18,13,22,0.78); padding: 7px 16px; border-radius: 20px;
+    opacity: 0; transition: opacity 0.3s; max-width: 80%; text-align: center; }
+  #hud-crosshair { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 22px; color: rgba(255,255,255,0.85); text-shadow: 0 0 6px #000; }
+  #hud-hurt { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 52%, rgba(200,20,20,0.55) 100%);
+    opacity: 0; }
+  #hud-dialogue { display: none; position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    width: min(680px, 88%); background: rgba(14, 10, 18, 0.88); border: 1px solid rgba(255,201,77,0.5);
+    border-radius: 12px; padding: 15px 19px; pointer-events: auto; cursor: pointer; }
+  #hud-dialogueText { font-size: 16.5px; line-height: 1.45; }
+  #hud-dialogue .hint { margin-top: 7px; font-size: 11.5px; opacity: 0.65; text-align: right; }
+
+  /* ---------------------------------------------------------- screens */
+  .screen { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; z-index: 20; padding: 24px; }
+  #title-screen { display: flex; background: linear-gradient(180deg, rgba(24,12,38,0.62) 0%, rgba(70,26,14,0.45) 55%, rgba(16,8,18,0.78) 100%); }
+  #title-screen h1 { font-size: 62px; letter-spacing: 3px; color: #ffd94d;
+    text-shadow: 0 4px 0 #a03d1e, 0 10px 34px rgba(0,0,0,0.8); }
+  #title-screen h2 { font-size: 21px; letter-spacing: 9px; color: #ffb37a; margin-top: 2px; font-weight: 600; }
+  #title-screen .story { max-width: 620px; margin: 20px 0 6px; font-size: 16px; line-height: 1.55; color: #f5ead6; }
+  .btnrow { display: flex; gap: 14px; margin-top: 20px; }
+  button { pointer-events: auto; cursor: pointer; font: inherit; font-weight: 700; font-size: 16px;
+    color: #2a1608; background: linear-gradient(180deg, #ffd94d, #f0a03c); border: none; border-radius: 10px;
+    padding: 12px 30px; box-shadow: 0 4px 16px rgba(0,0,0,0.45); }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.ghost { background: rgba(255,255,255,0.12); color: #f5ead6; border: 1px solid rgba(255,201,77,0.5); }
+  .controls { margin-top: 24px; font-size: 13px; line-height: 1.9; opacity: 0.88; max-width: 640px; }
+  .controls b { color: #ffd94d; }
+  #pause-screen, #busted-screen, #wasted-screen, #ending-screen { background: rgba(12, 8, 16, 0.78); }
+  .big { font-size: 54px; font-weight: 800; letter-spacing: 4px; }
+  #busted-screen .big { color: #7aa2ff; text-shadow: 0 6px 30px rgba(40,80,255,0.5); }
+  #wasted-screen .big { color: #ff5040; text-shadow: 0 6px 30px rgba(255,40,20,0.45); }
+  #ending-screen .big { color: #ffd94d; font-size: 42px; }
+  .sub { margin-top: 10px; font-size: 16px; opacity: 0.92; max-width: 560px; line-height: 1.55; }
+  .stats { display: grid; grid-template-columns: auto auto; gap: 7px 26px; margin-top: 22px;
+    font-size: 16.5px; text-align: left; background: rgba(255,255,255,0.06); padding: 18px 26px; border-radius: 12px; }
+  .stats span:nth-child(even) { color: #ffd94d; font-weight: 700; text-align: right; }
+</style>
+</head>
+<body>
+<div id="game-holder"></div>
+<div id="errbox"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-hurt"></div>
+  <div class="panel" id="hud-topleft">
+    <div id="hud-money">Rp 0</div>
+    <div id="hud-clock">17:35</div>
+    <div id="hud-shells">🐚 0/10</div>
+    <div id="hud-jobLabel"></div>
+  </div>
+  <div class="panel" id="hud-objective"></div>
+  <div class="panel" id="hud-topright">
+    <div id="hud-stars">☆☆☆☆☆</div>
+    <div id="hud-bustedWrap">
+      <div class="lbl">DITANGKAP</div>
+      <div class="bar"><div id="hud-bustedInner"></div></div>
+    </div>
+  </div>
+  <div id="hud-bottomleft">
+    <canvas id="hud-minimap" width="190" height="190"></canvas>
+    <div class="bar" id="hud-healthbar"><div id="hud-healthInner"></div></div>
+  </div>
+  <div id="hud-speedWrap">
+    <div><span id="hud-speed">0</span> <span class="unit">km/jam</span></div>
+    <div id="hud-radio"></div>
+  </div>
+  <div id="hud-banner"></div>
+  <div id="hud-toast"></div>
+  <div id="hud-crosshair">+</div>
+  <div id="hud-dialogue">
+    <div id="hud-dialogueText"></div>
+    <div class="hint">Klik / Enter ▸</div>
+  </div>
+</div>
+
+<!-- TITLE -->
+<div class="screen" id="title-screen">
+  <h1>TANJUNG SENJA</h1>
+  <h2>LAST LIGHT</h2>
+  <p class="story">Bima, pilot kapal pelabuhan, dijebak atas nama muatan hantu yang tak pernah ada.
+    Laras — fixer yang memegang satu-satunya salinan buku besar asli — menawari jalan keluar:
+    sembilan pekerjaan di seluruh kota pelabuhan saat matahari terbenam, dan namanya bersih lagi.
+    Jalan kaki atau curi mobil, hindari polisi, dan jangan tertangkap sebelum cahaya terakhir padam.</p>
+  <div class="btnrow">
+    <button id="btn-new">▶ Permainan Baru</button>
+    <button id="btn-continue" class="ghost">Lanjutkan</button>
+  </div>
+  <div class="controls">
+    <b>WASD</b> jalan / nyetir · <b>Mouse seret</b> kamera · <b>Shift</b> lari · <b>E / F</b> masuk–keluar mobil ·
+    <b>Klik</b> pukul / tembak · <b>R</b> ganti radio · <b>P / Esc</b> jeda · <b>M</b> bisu<br>
+    Selesaikan 9 pekerjaan · kumpulkan 10 kerang emas · antar penumpang taksi · menangkan balap jalanan ·
+    hilangkan wanted di <span style="color:#ffa726">Bengkel Cahaya</span>
+  </div>
+</div>
+
+<!-- PAUSE -->
+<div class="screen" id="pause-screen">
+  <div class="big" style="color:#ffd94d">JEDA</div>
+  <p class="sub">Tanjung Senja menunggu. Progres tersimpan otomatis.</p>
+  <div class="btnrow"><button id="btn-resume">Lanjut Main</button></div>
+</div>
+
+<!-- BUSTED -->
+<div class="screen" id="busted-screen">
+  <div class="big">DITANGKAP</div>
+  <p class="sub">Polisi Tanjung Senja membawamu ke kantor. Denda Rp150 dipotong, dan pekerjaan yang sedang berjalan diulang dari langkah terakhir.</p>
+  <div class="btnrow"><button id="btn-respawn-busted">Keluar dari Kantor Polisi</button></div>
+</div>
+
+<!-- WASTED -->
+<div class="screen" id="wasted-screen">
+  <div class="big">PINGSAN</div>
+  <p class="sub">Kau terbangun di Klinik Pusat Kota dengan kepala berat dan tagihan Rp100. Pekerjaan yang sedang berjalan diulang dari langkah terakhir.</p>
+  <div class="btnrow"><button id="btn-respawn-wasted">Bangun dari Klinik</button></div>
+</div>
+
+<!-- ENDING -->
+<div class="screen" id="ending-screen">
+  <div class="big">NAMA BERSIH</div>
+  <p class="sub">Siaran langsung TV Senja menayangkan buku besar asli dan kesaksian juru mudi.
+    Manifest hantu itu terbongkar — dan nama <b>Bima</b> resmi dibersihkan di seluruh Tanjung Senja.</p>
+  <div class="stats">
+    <span>Uang akhir</span><span id="end-money">Rp 0</span>
+    <span>Total penghasilan</span><span id="end-earned">Rp 0</span>
+    <span>Pekerjaan selesai</span><span id="end-jobs">9 / 9</span>
+    <span>Kerang emas</span><span id="end-shells">0 / 10</span>
+    <span>Mobil dicuri</span><span id="end-cars">0</span>
+    <span>Tarif taksi</span><span id="end-taxi">0</span>
+    <span>Balap terbaik</span><span id="end-race">—</span>
+    <span>Riwayat hukum</span><span id="end-busted">0×</span>
+  </div>
+  <div class="btnrow"><button id="btn-freeroam">🌇 Roam Bebas di Tanjung Senja</button></div>
+</div>
+
+<script src="./lib/three.min.js"></script>
+<script src="./src/config.js"></script>
+<script src="./src/audio.js"></script>
+<script src="./src/world.js"></script>
+<script src="./src/vehicles.js"></script>
+<script src="./src/people.js"></script>
+<script src="./src/police.js"></script>
+<script src="./src/missions.js"></script>
+<script src="./src/hud.js"></script>
+<script src="./src/shots.js"></script>
+<script src="./src/main.js"></script>
+</body>
+</html>
